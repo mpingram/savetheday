@@ -30,7 +30,7 @@ const DAY_END = "12:00AM";
 // splitDayIntoSegments returns the 30-minute segments between dayStart and dayEnd for date.
 // If dayEnd is less than dayStart, 
 // dayStart/dayEnd are in H:MMa format. I.e. 9:00AM -> 9 AM
-const splitDayIntoSegments = (date: Date, dayStart: string, dayEnd: string): Date[] => {
+const splitDayIntoSegments = (date: Date, dayStart: string, dayEnd: string): { [segment: string]: Date } => {
   const SEGMENT_LENGTH_MINS = 30;
   const TIME_FORMAT = "h:mma"; // e.g. 9:30AM
   const start = parse(dayStart, TIME_FORMAT, date)
@@ -38,17 +38,18 @@ const splitDayIntoSegments = (date: Date, dayStart: string, dayEnd: string): Dat
   if (isBefore(end, start)) {
     end = addDays(end, 1);
   }
-  let segments: Date[] = [];
+  let segments = {};
   let cur: Date = start;
   while (isBefore(cur, end)) {
-    segments.push(cur);
+    segments[formatISO(cur)] = cur;
     cur = addMinutes(cur, SEGMENT_LENGTH_MINS);
   }
   return segments;
 }
 
-const Segment = ({ time, selected }) => {
+const Segment = ({ time, selected, ...props }) => {
   return (<div
+    {...props}
     key={format(time, "dhmma")}
     className={`border-b flex-1 basis-1 ${selected ? 'bg-lime-300' : ''}`}
   />)
@@ -58,16 +59,35 @@ const Day = ({ day, start, end }) => {
   const segments = splitDayIntoSegments(day, start, end);
 
   let segmentsSelectedInitialState = {};
-  segments.forEach(segment => segmentsSelectedInitialState[formatISO(segment)] = false)
+  Object.entries(segments).forEach(([k, v]) => segmentsSelectedInitialState[k] = false)
   const [segmentsSelected, setSegmentsSelected] = useState(segmentsSelectedInitialState);
+  const [segmentUnderCursor, setSegmentUnderCursor] = useState('');
+  const [mouseY, setMouseY] = useState(0);
 
-  return (<div className='h-full border-collapse flex flex-col'>
-    {segments.map(segment => {
-      return (
-        <Segment key={formatISO(segment)} time={segment} selected={segmentsSelected[formatISO(segment)]} />
-      )
-    })}
-  </div>);
+  return (
+    <div
+      className='h-full border-collapse flex flex-col'
+      onMouseMove={ev => setMouseY(ev.screenY)}
+    >
+      {(
+        <div
+          className='outline'
+          style={{ borderRadius: '100%', position: 'relative', top: mouseY }}
+        >
+          {segmentUnderCursor}
+        </div>
+      )}
+      {Object.entries(segments).map(([key, time]) => {
+        return (
+          <Segment
+            key={key}
+            time={time}
+            selected={segmentsSelected[key]}
+            onMouseMove={ev => setSegmentUnderCursor(key)}
+          />
+        )
+      })}
+    </div>);
 }
 
 function App() {
