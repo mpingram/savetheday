@@ -1,5 +1,7 @@
 import React, { useState } from 'react';
 
+import Slider from 'rc-slider';
+import 'rc-slider/assets/index.css';
 import {
   startOfWeek,
   addDays,
@@ -9,7 +11,8 @@ import {
   eachHourOfInterval,
   isBefore,
   addMinutes,
-  formatISO
+  formatISO,
+  isSameMinute
 } from 'date-fns';
 
 const now = new Date()
@@ -27,15 +30,16 @@ const days = [
 const DAY_START = "9:00AM";
 const DAY_END = "12:00AM";
 
-// splitDayIntoSegments returns the 30-minute segments between dayStart and dayEnd for date.
-// If dayEnd is less than dayStart, 
-// dayStart/dayEnd are in H:MMa format. I.e. 9:00AM -> 9 AM
+// splitDayIntoSegments returns the 30-minute segments between dayStart and dayEnd for `date`.
+// If dayEnd is less than or equal to dayStart, dayEnd is assumed to be on the day after dayStart.
+// dayStart/dayEnd are in H:MMa format, eg `"9:00AM"` -> 9 AM.
 const splitDayIntoSegments = (date: Date, dayStart: string, dayEnd: string): { [segment: string]: Date } => {
   const SEGMENT_LENGTH_MINS = 30;
   const TIME_FORMAT = "h:mma"; // e.g. 9:30AM
   const start = parse(dayStart, TIME_FORMAT, date)
   let end = parse(dayEnd, TIME_FORMAT, date)
-  if (isBefore(end, start)) {
+  // if dayEnd is e.g. 1AM the next day, we need to update `end` accordingly.
+  if (isBefore(end, start) || isSameMinute(end, start)) {
     end = addDays(end, 1);
   }
   let segments = {};
@@ -47,47 +51,21 @@ const splitDayIntoSegments = (date: Date, dayStart: string, dayEnd: string): { [
   return segments;
 }
 
-const Segment = ({ time, selected, ...props }) => {
-  return (<div
-    {...props}
-    key={format(time, "dhmma")}
-    className={`border-b flex-1 basis-1 ${selected ? 'bg-lime-300' : ''}`}
-  />)
-}
-
 const Day = ({ day, start, end }) => {
   const segments = splitDayIntoSegments(day, start, end);
-
-  let segmentsSelectedInitialState = {};
-  Object.entries(segments).forEach(([k, v]) => segmentsSelectedInitialState[k] = false)
-  const [segmentsSelected, setSegmentsSelected] = useState(segmentsSelectedInitialState);
-  const [segmentUnderCursor, setSegmentUnderCursor] = useState('');
-  const [mouseY, setMouseY] = useState(0);
-
-  return (
-    <div
-      className='h-full border-collapse flex flex-col'
-      onMouseMove={ev => setMouseY(ev.screenY)}
-    >
-      {(
-        <div
-          className='outline'
-          style={{ borderRadius: '100%', position: 'relative', top: mouseY }}
-        >
-          {segmentUnderCursor}
-        </div>
-      )}
-      {Object.entries(segments).map(([key, time]) => {
-        return (
-          <Segment
-            key={key}
-            time={time}
-            selected={segmentsSelected[key]}
-            onMouseMove={ev => setSegmentUnderCursor(key)}
-          />
-        )
-      })}
-    </div>);
+  let marks = {}
+  Object.values(segments).forEach((time, i) => {
+    marks[i] = { label: format(time, "h:mma") }
+  });
+  return <Slider
+    range
+    vertical
+    reverse
+    min={0}
+    max={Object.values(segments).length}
+    marks={marks}
+    defaultValue={[3, 7]}
+  />
 }
 
 function App() {
