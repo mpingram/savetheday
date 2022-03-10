@@ -53,10 +53,14 @@ const splitDayIntoSegments = (date: Date, dayStart: string, dayEnd: string): { [
 
 const Day = ({ day, start, end }) => {
   const segments = splitDayIntoSegments(day, start, end);
-  let marks = {}
+  const [value, setValue] = useState([0, 0]);
+
+  let initialMarks = {}
   Object.values(segments).forEach((time, i) => {
-    marks[i] = { label: format(time, "h:mma") }
+    initialMarks[i] = { label: format(time, "h:mma") }
   });
+  const [marks, setMarks] = useState(initialMarks);
+
   return <Slider
     range
     vertical
@@ -64,7 +68,16 @@ const Day = ({ day, start, end }) => {
     min={0}
     max={Object.values(segments).length}
     marks={marks}
-    defaultValue={[3, 7]}
+    draggableTrack
+    value={value}
+    onChange={newValue => {
+      setValue(newValue as number[]);
+      let newMarks = {};
+      (newValue as number[]).forEach(i => {
+        newMarks[i] = { label: format(Object.values(segments)[i], "h:mma") }
+      })
+      setMarks(newMarks)
+    }}
   />
 }
 
